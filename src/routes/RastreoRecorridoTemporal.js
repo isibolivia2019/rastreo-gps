@@ -23,7 +23,6 @@ export default class Rutas extends React.Component {
         listaVehiculos: [],
         listaRecorrido: [],
         velocidadTiempo: 500,
-        currentCount: 10
     }
   }
 
@@ -402,7 +401,6 @@ render() {
                     </PanelContainer>
                 </Col>
             </Row>
-            <div>{this.state.currentCount}</div>
         </div>
     );
   }
