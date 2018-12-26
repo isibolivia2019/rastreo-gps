@@ -339,7 +339,8 @@ export default class Rutas extends React.Component {
                 }
             }
         });
-    
+
+        /*************************************************** */
         /*************************************************** */
         /*************************************************** */
     
@@ -375,7 +376,6 @@ export default class Rutas extends React.Component {
         })
     }
 }
-
 
 render() {
     return (
