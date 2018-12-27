@@ -38,8 +38,8 @@ export default class Rutas extends React.Component {
         estado: "AUN NO INICIADO",
         color: "bg-red fg-white",
         btnPlay: false,
-        btnStop: false,
-        btnPause: false,
+        btnStop: true,
+        btnPause: true,
     }
     nuevaPosicion = 0
     this.handleIniciarRecorrido = this.handleIniciarRecorrido.bind(this)
@@ -437,7 +437,6 @@ handleIniciarRecorrido(){
         for(let i = nuevaPosicion ; i < this.state.listaRecorrido.length ; i++){
             recorrido = recorrido.concat([[this.state.listaRecorrido[i].latitud, this.state.listaRecorrido[i].longitud]])
             tiempo = tiempo.concat([this.state.velocidadTiempo])
-            console.log("posicion", i)
         }
         marker3 = new L.Marker.MovingMarker(recorrido, tiempo, {autostart: false, loop: false}).addTo(map);
         marker3.bindPopup();
@@ -496,8 +495,8 @@ handleChange(e){
 
 render() {
     return (
-        <div ref="myRef">
-            <Row style={{marginLeft: -50, marginRight: -50, marginBottom:-50}}>
+        <div ref="myRef" style={{marginLeft: -25, marginRight: -25, marginBottom:-50}}>
+            <Row >
                 <Col xs={12}>
                     <PanelContainer>
                         <Panel>
@@ -505,11 +504,11 @@ render() {
                                 <Grid>
                                     <Row>
                                         <Col xs={12}>
-                                            <div style={{marginLeft: -25, marginRight: -25, marginBottom:-50}} >
+                                            <div style={{marginTop:-25, marginLeft: -25, marginRight: -25, marginBottom:-50}} >
                                                 <div className={css`width: 100%;height: 500px;position: relative;border: 1px solid black;`}>
                                                     <div id='map' className='map leaflet-container leaflet-fade-anim'></div>
                                                     
-                                                    <div className={css`position: absolute;bottom: 20px;width: 100%;`}>
+                                                    <div className={css`position: absolute;bottom: 50px;width: 100%;`}>
                                                         <Grid>
                                                             <Row>
                                                                 <Col xs={12}>
