@@ -5,17 +5,29 @@ const {socket} = require('../sockets')
 import {
   Row,
   Col,
+  Icon,
   Grid,
+  Label,
   Panel,
   Table,
+  Button,
   PanelBody,
+  FormControl,
   PanelContainer,
   MenuItem,
   DropdownButton
 } from '@sketchpixy/rubix';
 import store from '../store'
+
+var recorrido = []
+let tiempo = []
 var marker3
-let i = 0, j = 0
+var marker4
+var map
+let posicionMensaje = 0
+let nuevaPosicion = 0
+let sw3 = false
+let swPausa = false
 export default class Rutas extends React.Component {
   constructor(props){
     super(props)
@@ -23,37 +35,31 @@ export default class Rutas extends React.Component {
         listaVehiculos: [],
         listaRecorrido: [],
         velocidadTiempo: 500,
+        estado: "AUN NO INICIADO",
+        color: "bg-red fg-white",
+        btnPlay: false,
+        btnStop: false,
+        btnPause: false,
     }
+    nuevaPosicion = 0
+    this.handleIniciarRecorrido = this.handleIniciarRecorrido.bind(this)
+    this.handlePausaRecorrido = this.handlePausaRecorrido.bind(this)
+    this.handleStopRecorrido = this.handleStopRecorrido.bind(this)
+    this.handleChange = this.handleChange.bind(this)
   }
 
   
 
   timer() {
-    /*let km = 0;
-    let difeKm = 0;
-    let partesKm = 0;
-    let dadoKm = 0;
-    difeKm = this.state.listaRecorrido[i + 1].velocidad - this.state.listaRecorrido[i].velocidad
-    partesKm = difeKm / 100
-    dadoKm = partesKm * j
-    km = dadoKm + this.state.listaRecorrido[i].velocidad
-
-    if(j < 99){
-        j++
-    }else{
-        i++
-        j = 0;
-    }*/
     marker3.getPopup().setContent(` 
         ${this.state.listaVehiculos[0].marca} ${this.state.listaVehiculos[0].serie} - <b>${this.state.listaVehiculos[0].placa}</b><br>
-        <b>Hora: ${this.state.listaRecorrido[i].hora}</b><br>
-        ${parseInt( this.state.listaRecorrido[i].velocidad)>1?"<b>Velocidad:</b> " + parseInt( this.state.listaRecorrido[i].velocidad) + " km/h":"<b>Vehiculo sin movimiento</b>"}`
+        <b>Hora: ${this.state.listaRecorrido[posicionMensaje].hora}</b><br>
+        ${parseInt( this.state.listaRecorrido[posicionMensaje].velocidad)>1?"<b>Velocidad:</b> " + parseInt( this.state.listaRecorrido[posicionMensaje].velocidad) + " km/h":"<b>Vehiculo sin movimiento</b>"}`
     )
-    i++
-    if(i > (this.state.listaRecorrido.length - 1)) {
+    posicionMensaje++
+    if(posicionMensaje > (this.state.listaRecorrido.length - 1)) {
         alert("finalizo recorrido")
-        i=0
-        j=0
+        posicionMensaje=0
         clearInterval(this.intervalId);
     }
   }
@@ -345,42 +351,153 @@ export default class Rutas extends React.Component {
         /*************************************************** */
     
         // INICIA MI CODIGO
-        var map = new L.Map('map', {
+        map = new L.Map('map', {
             zoom: 6,
             minZoom: 3,
         });
-      
+
         // create a new tile layer
         var tileUrl = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         layer = new L.TileLayer(tileUrl, {
-          attribution: 'Maps © <a href=\"www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors',
+          attribution: `Maps © <a href=\"www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors`,
           maxZoom: 18
         });
         map.addLayer(layer);
-        map.setView([-16.499475, -68.122553], 13)
         const datos = {dispositivo: this.state.listaVehiculos[0].dispositivo, fecha: store.getState().fecha, horaInicio: store.getState().hora.horaInicio, horaFinal: store.getState().hora.horaFinal}
         socket.emit('recorrido', datos, ruta => {
-            var recorrido = []
-            let tiempo = []
+            map.setView([ruta[0].latitud, ruta[0].longitud], 16)
+            recorrido = []
+            tiempo = []
+            let horaSlider = []
             this.setState({listaRecorrido: ruta})
-            for(let i = 0 ; i < ruta.length ; i++){
-                recorrido = recorrido.concat([[ruta[i].latitud, ruta[i].longitud]])
-                tiempo = tiempo.concat([this.state.velocidadTiempo])
+            for(let i = 0 ; i < this.state.listaRecorrido.length ; i++){
+                horaSlider[i] = this.state.listaRecorrido[i].hora
             }
-            marker3 = new L.Marker.MovingMarker(recorrido,
-                tiempo, {autostart: true, loop: false}).addTo(map);
-            this.intervalId = setInterval(this.timer.bind(this), (this.state.velocidadTiempo));
-            marker3.loops = 0;
-            marker3.bindPopup('', {closeOnClick: false});
-            marker3.openPopup();
+            
+            marker4 = new L.Marker.MovingMarker([[this.state.listaRecorrido[0].latitud, this.state.listaRecorrido[0].longitud]],[]).addTo(map);
+            $('#example_2').ionRangeSlider({
+                values: horaSlider,
+                type: 'single',
+                hasGrid: true,
+    
+                onChange: (obj) => {
+                    this.setState({
+                        btnPlay: false,
+                        btnPause: true,
+                        btnStop: true,
+                    })
+                    if(sw3 != false){
+                        marker3.stop();
+                        map.removeLayer(marker3)
+                        sw3 = false
+                    }
+                    swPausa = false
+                    map.removeLayer(marker4)
+                    this.setState({estado: "EL RECORRIDO FUE DETENIDO", color: "bg-red fg-white"})
+                    clearInterval(this.intervalId);
+                    delete obj.input;
+                    delete obj.slider;
+                    nuevaPosicion = obj.fromNumber
+                    
+                    marker4 = new L.Marker.MovingMarker([[this.state.listaRecorrido[nuevaPosicion].latitud, this.state.listaRecorrido[nuevaPosicion].longitud]], []).addTo(map);
+                    marker4.bindPopup(` 
+                        ${this.state.listaVehiculos[0].marca} ${this.state.listaVehiculos[0].serie} - <b>${this.state.listaVehiculos[0].placa}</b><br>
+                        <b>Hora: ${this.state.listaRecorrido[nuevaPosicion].hora}</b><br>
+                        ${parseInt( this.state.listaRecorrido[nuevaPosicion].velocidad)>1?"<b>Velocidad:</b> " + parseInt( this.state.listaRecorrido[nuevaPosicion].velocidad) + " km/h":"<b>Vehiculo sin movimiento</b>"}`
+                    ).openPopup();
+                    map.setView({lat: this.state.listaRecorrido[nuevaPosicion].latitud, lng: this.state.listaRecorrido[nuevaPosicion].longitud})
+                }
+            });
         })
+        $("#map").height($(window).height() - 70).width($(window).width());
+        map.invalidateSize($(window).height());
     }
 }
+
+componentWillUnmount(){
+    if(sw3 != false){
+        marker3.stop();
+        map.removeLayer(marker3)
+        sw3 = false
+        clearInterval(this.intervalId);
+    }
+    nuevaPosicion = 0
+}
+
+handleIniciarRecorrido(){
+    this.setState({
+        btnPlay: true,
+        btnPause: false,
+        btnStop: false,
+    })
+    if(swPausa == false){
+        map.removeLayer(marker4)
+        recorrido = []
+        posicionMensaje = nuevaPosicion
+        for(let i = nuevaPosicion ; i < this.state.listaRecorrido.length ; i++){
+            recorrido = recorrido.concat([[this.state.listaRecorrido[i].latitud, this.state.listaRecorrido[i].longitud]])
+            tiempo = tiempo.concat([this.state.velocidadTiempo])
+            console.log("posicion", i)
+        }
+        marker3 = new L.Marker.MovingMarker(recorrido, tiempo, {autostart: false, loop: false}).addTo(map);
+        marker3.bindPopup();
+        sw3 = true
+        this.setState({estado: "EL RECORRIENDO FUE INICIADO", color: "bg-green fg-white"})
+        marker3.start();
+        this.intervalId = setInterval(this.timer.bind(this), (this.state.velocidadTiempo));
+        marker3.openPopup();
+    }else{
+        sw3 = true
+        this.setState({estado: "EL RECORRIENDO FUE REANUDADO", color: "bg-green fg-white"})
+        marker3.start();
+        this.intervalId = setInterval(this.timer.bind(this), (this.state.velocidadTiempo));
+        marker3.openPopup();
+    }
+    swPausa = false
+}
+
+
+handlePausaRecorrido(){
+    this.setState({
+        btnPlay: false,
+        btnPause: true,
+        btnStop: false,
+    })
+    swPausa = true
+    this.setState({estado: "EL RECORRIDO FUE DETENIDO TEMPORALMENTE", color: "bg-blue fg-white"})
+    marker3.pause();
+    clearInterval(this.intervalId);
+}
+
+handleStopRecorrido(){
+    this.setState({
+        btnPlay: false,
+        btnPause: true,
+        btnStop: true,
+    })
+    posicionMensaje = nuevaPosicion
+    this.setState({estado: "EL RECORRIDO FUE DETENIDO", color: "bg-red fg-white"})
+    marker3.stop();
+    map.removeLayer(marker3)
+    sw3 = false
+    clearInterval(this.intervalId);
+
+    marker4 = new L.Marker.MovingMarker([[this.state.listaRecorrido[nuevaPosicion].latitud, this.state.listaRecorrido[nuevaPosicion].longitud]], []).addTo(map);
+    marker4.bindPopup(` 
+        ${this.state.listaVehiculos[0].marca} ${this.state.listaVehiculos[0].serie} - <b>${this.state.listaVehiculos[0].placa}</b><br>
+        <b>Hora: ${this.state.listaRecorrido[nuevaPosicion].hora}</b><br>
+        ${parseInt( this.state.listaRecorrido[nuevaPosicion].velocidad)>1?"<b>Velocidad:</b> " + parseInt( this.state.listaRecorrido[nuevaPosicion].velocidad) + " km/h":"<b>Vehiculo sin movimiento</b>"}`
+    ).openPopup();
+}
+
+handleChange(e){
+    console.log("target:", e.target)
+  }
 
 render() {
     return (
         <div ref="myRef">
-            <Row style={{marginTop: -25, marginLeft: -50, marginRight: -50, marginBottom:-25}}>
+            <Row style={{marginLeft: -50, marginRight: -50, marginBottom:-50}}>
                 <Col xs={12}>
                     <PanelContainer>
                         <Panel>
@@ -388,13 +505,37 @@ render() {
                                 <Grid>
                                     <Row>
                                         <Col xs={12}>
-                                            <div style={{marginTop: -25, marginLeft: -25, marginRight: -25, marginBottom:-25}} >
-                                                <div>
-                                                    <div id='map' className='map leaflet-container leaflet-fade-anim' style={{height: 600}}></div>
+                                            <div style={{marginLeft: -25, marginRight: -25, marginBottom:-50}} >
+                                                <div className={css`width: 100%;height: 500px;position: relative;border: 1px solid black;`}>
+                                                    <div id='map' className='map leaflet-container leaflet-fade-anim'></div>
+                                                    
+                                                    <div className={css`position: absolute;bottom: 20px;width: 100%;`}>
+                                                        <Grid>
+                                                            <Row>
+                                                                <Col xs={12}>
+                                                                        <Button bsStyle='primary' onClick={this.handleIniciarRecorrido} disabled={this.state.btnPlay}><Icon glyph='icon-fontello-play-5'/></Button>
+                                                                        <Button bsStyle='primary' onClick={this.handlePausaRecorrido} disabled={this.state.btnPause}><Icon glyph='icon-fontello-pause-5'/></Button>
+                                                                        <Button bsStyle='primary' onClick={this.handleStopRecorrido} disabled={this.state.btnStop}><Icon glyph='icon-fontello-stop-5'/></Button>
+                                                                </Col>
+                                                            </Row>
+                                                            <Row>
+                                                                <Col xs={2}>
+                                                                        <Label className={this.state.color}>Estado: {this.state.estado}</Label>
+                                                                </Col>
+                                                            </Row>
+                                                            <Row>
+                                                                <Col xs={12}>
+                                                                    <div>
+                                                                        <FormControl type='text' id='example_2' ref='example_2' onChange={this.handleChange}/>
+                                                                    </div>
+                                                                </Col>
+                                                            </Row>
+                                                            <br/>
+                                                        </Grid>
+                                                    </div> 
                                                 </div>
                                             </div>  
                                         </Col>
-                                        
                                     </Row>
                                 </Grid>
                             </PanelBody>
